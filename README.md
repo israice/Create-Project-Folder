@@ -100,7 +100,7 @@ Feel free to fork, suggest improvements, or submit PRs!
 <!-- -------------------------------------------------- -->
 
 <details>
-  <summary>Github CHEATSHEET</summary>
+  <summary>CHEATSHEET</summary>
 
 ## Load last updates and replace existing local files
 
