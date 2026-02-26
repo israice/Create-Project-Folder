@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import os
 import re
+import json
+import yaml
 
 # Settings
 # Define the descriptive name for the new folder
@@ -9,6 +11,19 @@ FOLDER_NAME = 'NEW-FOLDER'
 PREFIX_WIDTH = 2
 # Name of the core backend directory inside the base directory
 CORE_BACKEND_DIR = os.path.join('core', 'BACKEND')
+
+def get_base_directory():
+    """
+    Read the base directory from settings.yaml if it exists.
+    Otherwise, use the current working directory.
+    """
+    settings_path = 'settings.yaml'
+    if os.path.exists(settings_path):
+        with open(settings_path, 'r', encoding='utf-8') as f:
+            settings = yaml.safe_load(f)
+            if settings and 'base_directory' in settings:
+                return settings['base_directory']
+    return '.'
 
 # Additional files in the base directory with minimal content
 ADDITIONAL_FILES_CONTENTS = {
@@ -267,15 +282,15 @@ FRONTEND_FILES = {
 """,
 }
 
-def get_next_prefix_number():
+def get_next_prefix_number(base_dir):
     """
-    Scan the current directory for folders with numeric prefixes and return the
+    Scan the specified directory for folders with numeric prefixes and return the
     smallest positive integer not yet used.
     """
-    entries = os.listdir('.')
+    entries = os.listdir(base_dir)
     nums = []
     for e in entries:
-        if os.path.isdir(e):
+        if os.path.isdir(os.path.join(base_dir, e)):
             m = re.match(r'^(\d+)-', e)
             if m:
                 try:
@@ -289,44 +304,59 @@ def get_next_prefix_number():
     return n
 
 def create_project_structure():
+    # Get base directory from settings.yaml or use current directory
+    base_dir = get_base_directory()
+    
     # Next prefix and base directory name
-    num = get_next_prefix_number()
+    num = get_next_prefix_number(base_dir)
     prefix = f"{num:0{PREFIX_WIDTH}d}"
-    base_dir = f"{prefix}-{FOLDER_NAME}"
+    folder_name = f"{prefix}-{FOLDER_NAME}"
+    
+    # Full path for the new project folder
+    full_path = os.path.join(base_dir, folder_name)
 
     # Create base directory
-    os.makedirs(base_dir, exist_ok=True)
+    os.makedirs(full_path, exist_ok=True)
 
     # Create additional files
     for name, content in ADDITIONAL_FILES_CONTENTS.items():
-        path = os.path.join(base_dir, name)
+        path = os.path.join(full_path, name)
         # Ensure parent dirs exist (for .gitignore etc.)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'w', encoding='utf-8') as f:
             f.write(content)
 
     # Create core backend dir and files
-    backend_dir = os.path.join(base_dir, CORE_BACKEND_DIR)
+    backend_dir = os.path.join(full_path, CORE_BACKEND_DIR)
     os.makedirs(backend_dir, exist_ok=True)
     for name, content in CORE_BACKEND_FILES.items():
         with open(os.path.join(backend_dir, name), 'w', encoding='utf-8') as f:
             f.write(content)
 
     # Create DATA directory and CSV files
-    data_dir = os.path.join(base_dir, 'core', 'DATA')
+    data_dir = os.path.join(full_path, 'core', 'DATA')
     os.makedirs(data_dir, exist_ok=True)
     for name, header in DATA_FILES.items():
         with open(os.path.join(data_dir, name), 'w', encoding='utf-8') as f:
             f.write(header)
 
     # Create FRONTEND directory and files
-    fe_dir = os.path.join(base_dir, 'core', 'FRONTEND')
+    fe_dir = os.path.join(full_path, 'core', 'FRONTEND')
     os.makedirs(fe_dir, exist_ok=True)
     for name, content in FRONTEND_FILES.items():
         with open(os.path.join(fe_dir, name), 'w', encoding='utf-8') as f:
             f.write(content)
 
-    print(f'- - - ✅ Project "{base_dir}" created successfully')
+    # Output result as JSON for programmatic parsing
+    result = {
+        "success": True,
+        "folder_name": folder_name,
+        "path": full_path,
+        "message": f'Project "{folder_name}" created successfully'
+    }
+    print(json.dumps(result))
+
 
 if __name__ == '__main__':
     create_project_structure()
+
