@@ -5,18 +5,14 @@ import json
 import yaml
 
 # Settings
-# Define the descriptive name for the new folder
 FOLDER_NAME = 'NEW-FOLDER'
-# Number of digits for the numeric prefix (e.g., 2 -> '01', 3 -> '001')
 PREFIX_WIDTH = 2
-# Name of the core backend directory inside the base directory
-CORE_BACKEND_DIR = os.path.join('core', 'BACKEND')
 
 def get_base_directory():
-    """
+    '''
     Read the base directory from settings.yaml if it exists.
     Otherwise, use the current working directory.
-    """
+    '''
     settings_path = 'settings.yaml'
     if os.path.exists(settings_path):
         with open(settings_path, 'r', encoding='utf-8') as f:
@@ -25,268 +21,221 @@ def get_base_directory():
                 return settings['base_directory']
     return '.'
 
-# Additional files in the base directory with minimal content
-ADDITIONAL_FILES_CONTENTS = {
-    '.env': """
-PORT=5039
-STATIC_FOLDER=core/FRONTEND
-""",
+# --- Root files ---
 
-    'requirements.txt': """
-flask
-requests
-python-dotenv
-""",
+ROOT_FILES = {
+    'run.py': '''import hashlib
+from pathlib import Path
 
-    'docker-compose.yaml': """
-""",
+import uvicorn
+from fastapi import FastAPI
+from fastapi.responses import FileResponse, HTMLResponse
 
-    '.gitignore': """
-""",
+from SETTINGS import APP_TITLE, HOST, PORT, RELOAD, LIVE_RELOAD, LIVE_RELOAD_INTERVAL
 
-    'README.md': """
-<!-- -------------------------------------------------- -->
-<!-- README.md • Project_Name • ©israice • MIT License - -->
-<!-- -------------------------------------------------- -->
+app = FastAPI(title=APP_TITLE)
 
-<h1 align="center">🧩 Project_Name</h1>
-
-<p align="center">
-  Minimalistic <b>HLS dashboard</b> built with pure&nbsp;HTML, CSS & JS.<br/>
-  Click any tile to <i>unmute + fullscreen</i>; click again to exit.<br/>
-  Based on m3u8 links only • No backend • No build step<br/>
-</p>
-
-<!-- -------------------------------------------------- -->
-<!-- -----------------GitHub badges-------------------- -->
-<!-- -------------------------------------------------- -->
-
-<p align="center">
-  <a href="https://github.com/israice/Project_Name/stargazers">
-    <img alt="GitHub stars" src="https://img.shields.io/github/stars/israice/Project_Name?style=for-the-badge&logo=github" />
-  </a>
-  <a href="https://github.com/israice/Project_Name/forks">
-    <img alt="GitHub forks" src="https://img.shields.io/github/forks/israice/Project_Name?style=for-the-badge&logo=github" />
-  </a>
-  <img alt="Last commit" src="https://img.shields.io/github/last-commit/israice/Project_Name?style=for-the-badge" />
-</p>
+FRONTEND_DIR = Path(__file__).parent / "FRONTEND"
 
 
-<!-- -------------------------------------------------- -->
-<!-- ----------------link to DEMO---------------------- -->
-<!-- -------------------------------------------------- -->
-
-## 🚀 Live Demo
-
-> **Try it instantly:**  
-> https://israice.github.io/Project_Name/
-
-<!-- -------------------------------------------------- -->
-<!-- ----------------Screenshot Preview---------------- -->
-<!-- -------------------------------------------------- -->
-
-## 📸 Preview
-
-<p align="center">
-  <img src="https://i.postimg.cc/nr8PwWmk/screenshot.png" alt="Project_Name screenshot">
-</p>
-
-<!-- -------------------------------------------------- -->
-<!-- ----------------Features Table-------------------- -->
-<!-- -------------------------------------------------- -->
-
-## ✨ Features
-
-| Check | Capability |
-| :---- | :--------- |
-| 🔥 **Instant setup** | clone → open `index.html` |
-| 📺 **Few screens** | grid auto-fills, adapts to screen |
-| 🎙 **One-click sound** | click tile: unmute + fullscreen; click again: mute + exit |
-| 📡 **HLS support** | powered by <a href="https://github.com/video-dev/hls.js/">hls.js</a> |
-| 🖥 **No pauses** | custom handler cancels native play/pause toggle |
-| ⚡ **Zero backend**   | works on any static host / CDN |
-
-<!-- -------------------------------------------------- -->
-<!-- ----------------Configuration--------------------- -->
-<!-- -------------------------------------------------- -->
-
-## ⚙️ Configuration
-
-connected.txt
-
-<!-- -------------------------------------------------- -->
-<!-- ----------------Contributing---------------------- -->
-<!-- -------------------------------------------------- -->
-
-## 🤝 Contributing
-
-Fork → branch → commit feat/fix
-
-<!-- -------------------------------------------------- -->
-<!-- ----------------hide log-------------------------- -->
-<!-- -------------------------------------------------- -->
-
-<details>
-  <summary>DEV Log</summary>
-
-### v0.0.1
-
-- Project Started date 2025.06.17
-- added index.html
-- added README.md with all needed
-- added screenshot.png to README.md
-- v0.0.1 all tested and works
-
-### v0.0.2
-
-- name of the repo updated in README.md
-- screenshot uploaded to free hosting
-- 2 dead links replaced
-
-### FUTURE PLANS
-
-- create and connect github pages for deployment 
-- add scrolling to move all screen left and right
-- create script to get all m3u8 from the source at once
-
-### SOURCE
-
-https://github.com/Free-TV/IPTV/tree/master/lists
+@app.get("/", response_class=HTMLResponse)
+async def index():
+    html = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
+    html = html.replace("{{APP_TITLE}}", APP_TITLE)
+    if LIVE_RELOAD:
+        script = f'<script>(async()=>{{let h=null;while(true){{try{{const r=await fetch("/api/hash");const{{hash}}=await r.json();if(h&&hash!==h)location.reload();h=hash}}catch{{}}await new Promise(r=>setTimeout(r,{LIVE_RELOAD_INTERVAL * 1000}))}}}})();</script>'
+        html = html.replace("</body>", script + "</body>")
+    return html
 
 
-<!-- -------------------------------------------------- -->
-<!-- ----------------Github CHEATSHEET----------------- -->
-<!-- -------------------------------------------------- -->
+if LIVE_RELOAD:
+    def _hash_frontend():
+        h = hashlib.md5()
+        for f in sorted(FRONTEND_DIR.rglob("*")):
+            if f.is_file():
+                h.update(f.read_bytes())
+        return h.hexdigest()
 
-<details>
-  <summary>Github CHEATSHEET</summary>
+    @app.get("/api/hash")
+    async def frontend_hash():
+        return {"hash": _hash_frontend()}
 
-## Load last updates and replace existing local files
 
-git fetch origin; git reset --hard origin/master; git clean -fd
+@app.get("/favicon.ico")
+async def favicon():
+    return FileResponse(FRONTEND_DIR / "favicon.svg", media_type="image/svg+xml")
 
-## Select a hash from the last 10 commits
 
-git log --oneline -n 10
+if __name__ == "__main__":
+    uvicorn.run("run:app", host=HOST, port=PORT, reload=RELOAD)
+''',
 
-## Use the hash to get that exact version locally
+    'SETTINGS.py': '''import os
 
-git fetch origin; git checkout master; git reset --hard 1eaef8b; git clean -fdx
+APP_TITLE = "Tailscale Apps"
+HOST = os.environ.get("HOST", "127.0.0.1")
+PORT = int(os.environ.get("PORT", 8000))
+RELOAD = True
+LIVE_RELOAD = True
+LIVE_RELOAD_INTERVAL = 3
+''',
 
-## Update repository
+    'README.md': '''
+''',
 
-git add .  
-git commit -m "2 dead links replaced"  
+    'requirements.txt': '''fastapi
+uvicorn
+''',
+
+    'docker-compose.yml': '''services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+    volumes:
+      - ./FRONTEND:/app/FRONTEND
+      - ./run.py:/app/run.py
+    restart: unless-stopped
+''',
+
+    'Dockerfile': '''FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+
+CMD ["python", "run.py"]
+''',
+
+    'TASKS.md': '''# DONE
+
+# TASKS
+
+# FUTURE
+''',
+
+    'VERSION.md': '''# START
+pip install -r requirements.txt
+
+python run.py
+
+# RECOVERY
+git log --oneline -n 5
+
+Copy-Item .env $env:TEMP\\.env.backup
+git reset --hard 80f714fc
+git clean -fd
+Copy-Item $env:TEMP\\.env.backup .env -Force
+git push origin master --force
+python run.py
+
+# UPDATE
+git add .
+git commit -m "v0.0.1 - first commit 01.03.2026"
 git push
+python run.py
 
-</details>
 
-</details>
-
-<!-- -------------------------------------------------- -->
-<!-- ----------------License--------------------------- -->
-<!-- -------------------------------------------------- -->
-
-## 📄 License
-
-Licensed under the MIT License.
-
-<p align="center"><sub>Made with ❤️ for realtime news junkies.</sub></p>
-
-""",
-
-    'run.py': """
-#!/usr/bin/env python3
-import subprocess
-import sys
-import os
-from dotenv import load_dotenv
-from flask import Flask, send_from_directory
-
-load_dotenv()
-
-PORT = int(os.getenv('PORT'))
-STATIC_FOLDER = os.getenv('STATIC_FOLDER')
-
-static_path = os.path.abspath(STATIC_FOLDER)
-app = Flask(__name__, static_folder=None)
-
-@app.route('/')
-def index():
-    return send_from_directory(static_path, 'index.html')
-
-@app.route('/<path:filename>')
-def serve_static(filename):
-    return send_from_directory(static_path, filename)
-
-for script in ("core/BACKEND/A_run.py", "core/BACKEND/B_run.py"):
-    code = subprocess.call([sys.executable, script])
-    if code != 0:
-        sys.exit(code)
-
-if __name__ == '__main__':
-    app.run(port=PORT)
-""",
-
-    'settings.yaml': """
-""",
+# DEV LOG
+v0.0.1 - first commit 01.03.2026
+''',
 }
 
-# Core backend files with minimal Python code
-CORE_BACKEND_FILES = {
-    'A_run.py': """
-#!/usr/bin/env python3
-import subprocess, sys
+# --- FRONTEND files ---
 
-for script in (
-    "core/BACKEND/test.py",
-    ):
-    if subprocess.call([sys.executable, script]) != 0:
-        sys.exit(1)
-""",
-
-    'B_run.py': """
-#!/usr/bin/env python3
-import subprocess, sys
-
-for script in (
-    "core/BACKEND/test.py",
-    ):
-    if subprocess.call([sys.executable, script]) != 0:
-        sys.exit(1)
-""",
-
-    'test.py': """
-print('- - - ✅ Test')
-""",
-}
-
-# Data files under core/DATA with minimal CSV headers
-DATA_FILES = {
-    'data_db.csv': """
-""",
-
-    'users_db.csv': """
-""",
-}
-
-# Frontend files under core/FRONTEND with minimal boilerplate
 FRONTEND_FILES = {
-    'index.html': """
-""",
+    'index.html': '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{APP_TITLE}}</title>
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    'script.js': """
-""",
+        body {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
 
-    'styles.css': """
-""",
+        .buttons {
+            display: flex;
+            gap: 24px;
+        }
+
+        .btn {
+            padding: 16px 48px;
+            font-size: 18px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: #1e293b;
+            color: #e2e8f0;
+            border: 1px solid #334155;
+        }
+    </style>
+</head>
+<body>
+    <div class="buttons">
+        <button class="btn btn-primary">Button 1</button>
+        <button class="btn btn-secondary">Button 2</button>
+    </div>
+</body>
+</html>
+''',
+
+    'favicon.svg': '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="8" fill="#3b82f6"/>
+  <text x="16" y="23" font-size="20" font-weight="bold" fill="#fff" text-anchor="middle" font-family="sans-serif">T</text>
+</svg>
+''',
 }
+
+# --- Empty directories ---
+
+EMPTY_DIRS = ['BACKEND', 'DATA']
+
 
 def get_next_prefix_number(base_dir):
-    """
+    '''
     Scan the specified directory for folders with numeric prefixes and return the
     smallest positive integer not yet used.
-    """
+    '''
     entries = os.listdir(base_dir)
     nums = []
     for e in entries:
@@ -304,50 +253,32 @@ def get_next_prefix_number(base_dir):
     return n
 
 def create_project_structure():
-    # Get base directory from settings.yaml or use current directory
     base_dir = get_base_directory()
-    
-    # Next prefix and base directory name
+
     num = get_next_prefix_number(base_dir)
     prefix = f"{num:0{PREFIX_WIDTH}d}"
     folder_name = f"{prefix}-{FOLDER_NAME}"
-    
-    # Full path for the new project folder
-    full_path = os.path.join(base_dir, folder_name)
 
-    # Create base directory
+    full_path = os.path.join(base_dir, folder_name)
     os.makedirs(full_path, exist_ok=True)
 
-    # Create additional files
-    for name, content in ADDITIONAL_FILES_CONTENTS.items():
+    # Create root files
+    for name, content in ROOT_FILES.items():
         path = os.path.join(full_path, name)
-        # Ensure parent dirs exist (for .gitignore etc.)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'w', encoding='utf-8') as f:
             f.write(content)
 
-    # Create core backend dir and files
-    backend_dir = os.path.join(full_path, CORE_BACKEND_DIR)
-    os.makedirs(backend_dir, exist_ok=True)
-    for name, content in CORE_BACKEND_FILES.items():
-        with open(os.path.join(backend_dir, name), 'w', encoding='utf-8') as f:
-            f.write(content)
+    # Create empty directories
+    for d in EMPTY_DIRS:
+        os.makedirs(os.path.join(full_path, d), exist_ok=True)
 
-    # Create DATA directory and CSV files
-    data_dir = os.path.join(full_path, 'core', 'DATA')
-    os.makedirs(data_dir, exist_ok=True)
-    for name, header in DATA_FILES.items():
-        with open(os.path.join(data_dir, name), 'w', encoding='utf-8') as f:
-            f.write(header)
-
-    # Create FRONTEND directory and files
-    fe_dir = os.path.join(full_path, 'core', 'FRONTEND')
+    # Create FRONTEND files
+    fe_dir = os.path.join(full_path, 'FRONTEND')
     os.makedirs(fe_dir, exist_ok=True)
     for name, content in FRONTEND_FILES.items():
         with open(os.path.join(fe_dir, name), 'w', encoding='utf-8') as f:
             f.write(content)
 
-    # Output result as JSON for programmatic parsing
     result = {
         "success": True,
         "folder_name": folder_name,
@@ -359,4 +290,3 @@ def create_project_structure():
 
 if __name__ == '__main__':
     create_project_structure()
-
